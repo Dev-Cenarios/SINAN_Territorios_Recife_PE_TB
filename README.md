@@ -4,9 +4,9 @@
 >
 > **DADOS FICTÍCIOS.** Esta é uma vitrine do painel, com dados do SINAN e do SIM **inteiramente fictícios**. Nenhum caso, óbito, nome, endereço, data ou coordenada corresponde a uma pessoa real. A versão de produção roda com dados sigilosos de pacientes, em ambiente seguro da Secretaria de Saúde, e não é distribuída aqui. Veja [como os dados fictícios foram gerados](#2-dados-fictícios).
 
-### [▶ Ver o painel ao vivo](https://dev-cenarios.github.io/SINAN_Territorios_Recife_PE_TB/)
+### [▶ Ver o painel ao vivo](https://cenariostb.unb.br/SINAN_Territorios_Recife_PE_TB_port/)
 
-O painel roda inteiro no seu navegador, com os dados fictícios, sem instalar nada. A primeira abertura leva de 30 segundos a pouco mais de um minuto, conforme a conexão — o navegador baixa o R e os pacotes —, e as seguintes são mais rápidas. Funciona melhor num computador; em celulares mais simples pode ficar lento ([como é feito](#66-versão-web-github-pages)).
+O painel roda no servidor do Programa Cenários, com os dados fictícios: abre direto no navegador, sem instalar nada ([como é feito](#66-painel-ao-vivo)).
 
 > Veja também o painel irmão, de hanseníase: [SINAN Territórios: Hanseníase – Pernambuco](https://github.com/Dev-Cenarios/SINAN_Territorios_Pernambuco_Hansen) ([painel ao vivo](https://dev-cenarios.github.io/SINAN_Territorios_Pernambuco_Hansen/)).
 
@@ -120,7 +120,7 @@ Os avisos de dados fictícios (selo no cabeçalho, faixa, aviso de abertura, sel
 │   └── PROMPT_TEMPLATE_README.md   # Prompt padrão usado para gerar READMEs no Programa Cenários
 ├── dev/
 │   ├── gerar_dados_ficticios.R      # Gera as bases fictícias desta vitrine
-│   ├── build_shinylive.R            # Gera a versão web (Shinylive) publicada no GitHub Pages
+│   ├── build_shinylive.R            # Gera a versão estática do painel (Shinylive), opcional
 │   ├── build_unidades_cnes.R        # (produção) Gera o cache das unidades de saúde (API do CNES + coordenadas oficiais da SESAU)
 │   ├── build_distritos_sanitarios.R # Gera a malha dos 8 Distritos Sanitários (bairros do IBGE + divisão da SESAU)
 │   ├── build_abrangencia_aps.R      # Gera as áreas de abrangência da APS (camada oficial da SESAU no ESIG)
@@ -232,11 +232,30 @@ O que acontece:
 
 O filtro de datas acompanha a base carregada: abre nos 6 meses que terminam na última data de notificação (a mesma "data de atualização" do cabeçalho), e essa data é também o limite do calendário (`periodo_default()` em `R/mod_municipio.R`). Com os dados fictícios, de 01/07/2023 a 31/12/2023.
 
-### 6.6 Versão web (GitHub Pages)
+### 6.6 Painel ao vivo
 
-O [painel ao vivo](https://dev-cenarios.github.io/SINAN_Territorios_Recife_PE_TB/) usa o [Shinylive](https://posit-dev.github.io/r-shinylive/): o R, compilado para WebAssembly ([webR](https://docs.r-wasm.org/webr/latest/)), roda no navegador de quem visita, sem servidor. É um site estático no branch `gh-pages` deste repositório, publicado pelo GitHub Pages.
+O [painel ao vivo](https://cenariostb.unb.br/SINAN_Territorios_Recife_PE_TB_port/) roda no Shiny Server do Programa Cenários, direto de um clone deste repositório, com os dados fictícios. Para montar num Shiny Server (como usuário com `sudo`, numa pasta vazia criada em `/srv/shiny-server/`):
 
-Para regerar o site (por exemplo, depois de mudar o painel ou os dados fictícios):
+```bash
+git clone https://github.com/Dev-Cenarios/SINAN_Territorios_Recife_PE_TB.git .
+mkdir -p local && sudo chgrp shiny local && sudo chmod 2775 local
+```
+
+O Shiny Server roda o painel como usuário `shiny`, que precisa escrever em `local/` para montar a base na primeira abertura. Antes de deixar público, confira que `PAINEL_DADOS_REAIS_DIR` está vazia para esse usuário (`sudo -H -u shiny Rscript -e 'Sys.getenv("PAINEL_DADOS_REAIS_DIR")'`). Se não estiver, o painel carregaria a base real, sem os avisos.
+
+**Não instale o pacote no servidor.** O painel roda direto da pasta, e o nome do pacote (`SINANTerritoriosTBRecife`) é o mesmo do painel de produção — instalar sobrescreveria o pacote dele.
+
+Para atualizar depois de mudanças no repositório:
+
+```bash
+git pull && touch restart.txt
+```
+
+#### Versão estática (Shinylive)
+
+O repositório também gera uma versão do painel que roda inteira no navegador, sem servidor, com o [Shinylive](https://posit-dev.github.io/r-shinylive/) (o R compilado para WebAssembly, o [webR](https://docs.r-wasm.org/webr/latest/)). Ela pode ser publicada como site estático no GitHub Pages, mas abre bem mais devagar — o navegador baixa o R e os pacotes a cada primeira visita —, por isso o painel ao vivo fica no servidor.
+
+Para gerar o site:
 
 ```bash
 Rscript dev/build_shinylive.R
@@ -244,7 +263,7 @@ Rscript dev/build_shinylive.R
 
 O script monta a base fictícia, copia para uma pasta temporária só o código que o painel executa, as malhas e os caches prontos de `local/` (o navegador não refaz a carga dos CSVs) e exporta tudo para `site/` (não versionada no `main`). **Ele só aceita a base fictícia**: para com erro se `PAINEL_DADOS_REAIS_DIR` estiver definido ou se a base local não for a fictícia, porque o site é público. Para ver antes de publicar: `Rscript -e "httpuv::runStaticServer('site', port = 8008)"` e abra `http://localhost:8008`.
 
-Para publicar, substituindo o site anterior:
+Para publicar no branch `gh-pages`, substituindo o site anterior:
 
 ```bash
 cd site
